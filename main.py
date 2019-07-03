@@ -2,30 +2,34 @@ import numpy as np
 import pickle
 import pygame as pg
 
+SW = 600
+SH = 600
+
+pg.init()
+clock = pg.time.Clock()
+win = pg.display.set_mode((SW, SH))
+
 SIZE = 15
 EPOCHS = 100000
-LOSE_PENALTY = 500
-EAT_REWARD = 50
-SIZE_REWARD = 30
-MOVE_PENALTY = 4
-EPS = 0.9
-EPS_DECAY = 0.999
+LOSE_PENALTY = 601
+EAT_REWARD = 60
+MOVE_PENALTY = 3
+EPS = 0.95
+EPS_DECAY = 0.9999
 SHOW_WHEN = 5000
-STEPS = 100
+STEPS = 150
 LEARNING_RATE = 0.1
 DISCOUNT = 0.98
-SNAKE_KEY = 1
-FOOD_KEY = 2
+
+SCALING = SW // SIZE
 
 starting_q_table = None
-
-colours = {1: (255,255,255), 2: (100,255,1000)}
 
 class Snake:
     def __init__(self):
         self.x = 8
         self.y = 7
-        self.size = 3
+        self.size = 4
         self.dir = 1 # directions are 0-up, 1-right, 2-down, 3-left
         self.ate = False
         self.body = []
@@ -70,6 +74,12 @@ class Snake:
         if new_dir != self.dir: self.change_direction(new_dir)
         self.move()
 
+    def draw(self, window):
+        for part in self.body:
+            pg.draw.rect(window, (255, 255, 255),
+                         (part[0] * SCALING + 1, part[1] * SCALING + 1, SCALING - 2, SCALING - 2))
+
+
 class Treat:
     def __init__(self):
         self.x = np.random.randint(0, SIZE)
@@ -78,6 +88,10 @@ class Treat:
     def change_pos(self):
         self.x = np.random.randint(0, SIZE)
         self.y = np.random.randint(0, SIZE)
+
+    def draw(self, window):
+        pg.draw.rect(window, (0, 255, 100), (self.x * SCALING, self.y * SCALING, SCALING, SCALING))
+
 #==========================================================================#
 
 # observation space is location of food relative to head and is there a body on the left, right or fowards
@@ -96,8 +110,11 @@ else:
         q_table = pickle.load(f)
 
 epoch_rewards = []
+suicides = 0
+best_mean = -10000
+best_q_table = {}
 
-for epoch in range(EPOCHS):
+for epoch in range(EPOCHS+2):
     python = Snake()
     food = Treat()
     inside = False
@@ -113,15 +130,17 @@ for epoch in range(EPOCHS):
                     inside = True
                     break
 
-    
+    if not epoch % 500: print(f"{epoch}#")
     if epoch % SHOW_WHEN == 0:
         render = True
-        print(f"#{epoch}, mean: {np.mean(epoch_rewards[-SHOW_WHEN:])}")   
+        current_mean = np.mean(epoch_rewards[-SHOW_WHEN:])
+        print(f"#{epoch}, mean: {current_mean}, suicides: {suicides}, epsilon: {EPS}")
+        suicides = 0
     else:
         render = False
 
     epoch_rew = 0
-    for i in range(STEPS+epoch):
+    for i in range(STEPS+render*1000):
         left_b = 0
         right_b = 0
         up_b = 0
@@ -159,15 +178,16 @@ for epoch in range(EPOCHS):
                     if part == (food.x, food.y):
                         inside = True
                         break
-        
+
         else:
+            reward = 0
             for part in python.body:
-                if part == (python.x, python.y):
+                if part == (python.x, python.y) and part is not python.body[0]:
                     reward = -LOSE_PENALTY
+                    suicides += 1
                     break
             if reward == 0:
                 reward = -MOVE_PENALTY
-
 
         new_observation = ((python.x-food.x,python.y-food.y), left_b, right_b, up_b, down_b, python.dir)
         max_future_q = np.max(q_table[new_observation])
@@ -179,16 +199,28 @@ for epoch in range(EPOCHS):
             new_q = (1-LEARNING_RATE) * current_q + LEARNING_RATE * (reward + DISCOUNT * max_future_q)
 
         q_table[obs][action] = new_q
+        
+        pg.event.get()
 
         if render:
-            pass
-        
+            clock.tick(40)
+            win.fill((0,0,0))
+            python.draw(win)
+            food.draw(win)
+            pg.display.update()
+            
         epoch_rew += reward
-        if epoch_rew == -LOSE_PENALTY:
+        if reward == -LOSE_PENALTY:
             break
     
-    epoch_rew += len(python.body)*SIZE_REWARD
-    if render: print(f"snake length {len(python.body)+1}")
+    if render: print(f"snake length {len(python.body)-2}, did suicide: {suicides}")
+    if current_mean > best_mean:
+        best_q_table = q_table
+        best_mean = current_mean
     epoch_rewards.append(epoch_rew)
     EPS *= EPS_DECAY
 
+pg.quit()
+
+with open(f"QL_S_table-{best_mean}.pkl", "wb") as f:
+    pickle.dump(best_q_table, f)
