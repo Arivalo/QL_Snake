@@ -222,5 +222,5 @@ for epoch in range(EPOCHS+2):
 
 pg.quit()
 
-with open(f"QL_S_table-{best_mean}.pkl", "wb") as f:
+with open(f"QL_S_table-{int(best_mean)}.pkl", "wb") as f:
     pickle.dump(best_q_table, f)
