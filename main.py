@@ -10,20 +10,23 @@ clock = pg.time.Clock()
 win = pg.display.set_mode((SW, SH))
 
 SIZE = 15
-EPOCHS = 100000
+EPOCHS = 160000
 LOSE_PENALTY = 601
 EAT_REWARD = 60
 MOVE_PENALTY = 3
-EPS = 0.95
-EPS_DECAY = 0.9999
-SHOW_WHEN = 5000
-STEPS = 150
+EPS = 0.7
+EPS_DECAY = 0.9997
+SHOW_WHEN = 10000
+STEPS = 220
 LEARNING_RATE = 0.1
-DISCOUNT = 0.98
+DISCOUNT = 0.99
+SAVE = True
+FPS = 30
 
 SCALING = SW // SIZE
 
 starting_q_table = None
+
 
 class Snake:
     def __init__(self):
@@ -92,7 +95,7 @@ class Treat:
     def draw(self, window):
         pg.draw.rect(window, (0, 255, 100), (self.x * SCALING, self.y * SCALING, SCALING, SCALING))
 
-#==========================================================================#
+#=========================================================================
 
 # observation space is location of food relative to head and is there a body on the left, right or fowards
 if starting_q_table is None:
@@ -111,7 +114,7 @@ else:
 
 epoch_rewards = []
 suicides = 0
-best_mean = -10000
+best_mean = -1000
 best_q_table = {}
 
 for epoch in range(EPOCHS+2):
@@ -150,7 +153,7 @@ for epoch in range(EPOCHS+2):
             elif python.x - 1 < 0 and part == (SIZE-1, python.y): left_b = 1
             if part == ((python.x + 1)%SIZE, python.y): right_b = 1
             if part == (python.x, python.y - 1): up_b = 1
-            elif python.y - 1 < 0 and part == (python.x, SIZE-1): left_b = 1
+            elif python.y - 1 < 0 and part == (python.x, SIZE-1): up_b = 1
             if part == (python.x, (python.y + 1)%SIZE): down_b = 1
  
         obs = ((python.x-food.x,python.y-food.y), left_b, right_b, up_b, down_b, python.dir)
@@ -203,7 +206,7 @@ for epoch in range(EPOCHS+2):
         pg.event.get()
 
         if render:
-            clock.tick(40)
+            clock.tick(FPS)
             win.fill((0,0,0))
             python.draw(win)
             food.draw(win)
@@ -222,5 +225,6 @@ for epoch in range(EPOCHS+2):
 
 pg.quit()
 
-with open(f"QL_S_table-{int(best_mean)}.pkl", "wb") as f:
-    pickle.dump(best_q_table, f)
+if SAVE:
+    with open(f"QL_S_table-{int(best_mean)}.pkl", "wb") as f:
+        pickle.dump(best_q_table, f)

@@ -10,17 +10,17 @@ clock = pg.time.Clock()
 win = pg.display.set_mode((SW, SH))
 
 SIZE = 15
-EPOCHS = 120000
+EPOCHS = 200000
 LOSE_PENALTY = 601
 EAT_REWARD = 60
 MOVE_PENALTY = 3
-EPS = 0.94
+EPS = 0.95
 EPS_DECAY = 0.99994
-SHOW_WHEN = 6000
+SHOW_WHEN = 20000
 STEPS = 150
 LEARNING_RATE = 0.1
-DISCOUNT = 0.98
-SAVE = False
+DISCOUNT = 0.99
+SAVE = True
 
 SCALING = SW // SIZE
 
@@ -157,7 +157,7 @@ for epoch in range(EPOCHS+2):
             elif python.x - 1 < 0 and part == (SIZE-1, python.y): left_b = 1
             if part == ((python.x + 1)%SIZE, python.y): right_b = 1
             if part == (python.x, python.y - 1): up_b = 1
-            elif python.y - 1 < 0 and part == (python.x, SIZE-1): left_b = 1
+            elif python.y - 1 < 0 and part == (python.x, SIZE-1): up_b = 1
             if part == (python.x, (python.y + 1)%SIZE): down_b = 1
 
         if left_b == 0 and python.x == 0:
@@ -243,5 +243,5 @@ for epoch in range(EPOCHS+2):
 pg.quit()
 
 if SAVE:
-    with open(f"QL_S_table-{int(best_mean)}.pkl", "wb") as f:
+    with open(f"QL_SW_table-{int(best_mean)}.pkl", "wb") as f:
         pickle.dump(best_q_table, f)
